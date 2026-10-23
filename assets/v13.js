@@ -1072,8 +1072,56 @@ function renderMapV13(data, display = {}, state = {}) {
   return { svg, layout, panel: panelInfo };
 }
 
+// V1.3：第2票。表示データに仮説ごとの経営者向けの要旨（display.sheet2_briefs）がある場合は、
+// 問い→事実→構造→説明できること・できないこと→対抗仮説→公開情報で判断できないこと→第二層の問い→確かさ、の順で描く。
+// 要旨のない仮説・データは、従来の第2票（src/render.js の renderSheet2）をそのまま使う。分析データは変更しない。
+
+
+const badgeS2 = type => `<span class="ct ct-${esc(type)}">${esc(CLAIM_TYPES[type] || type)}</span>`;
+const chipS2 = c => `<span class="chip" style="border-color:${esc(c.color)};color:${esc(c.color)}">${esc(c.name)}</span>`;
+const listS2 = items => items.length ? `<ul>${items.map(x => `<li>${x}</li>`).join('')}</ul>` : '<p class="muted">未記録</p>';
+
+// 初期表示：仮説ID・問い・対象案件・なぜこの問いか・第二層で確かめたいこと。
+// 詳細：根拠ID付きの事実・構造・説明できること／できないこと・対抗仮説とその根拠・公開情報で判断できないこと・その他の検証課題・確かさ。
+// 画面では詳細を折りたたみ（details）、印刷では同じ詳細を展開した写し（printonly）を出す。
+function renderBriefDetail(b, evIds) {
+  const ref = ids => ids && ids.length ? ` <span class="small">［${ids.map(id => esc(id) + (evIds.has(id) ? '' : '（台帳外）')).join('・')}］</span>` : '';
+  return `<p><b>この問いが生まれた事実：</b></p>` + listS2(b.facts.map(f => esc(f.text) + ref(f.evidence_ids)))
+    + `<p><b>示唆される構造的な制約：</b>${esc(b.structure)}</p>`
+    + `<p><b>説明できること：</b>${esc(b.explains)}<br><b>説明できないこと：</b>${esc(b.not_explains)}</p>`
+    + `<p><b>対抗仮説とその根拠：</b></p>` + listS2(b.rivals.map(x => esc(x.text) + (x.hypothesis_ids.length ? `（${x.hypothesis_ids.map(esc).join('・')}）` : '') + ref(x.evidence_ids)))
+    + `<p><b>公開情報では判断できないこと：</b></p>` + listS2(b.unknown.map(esc))
+    + (b.more_checks?.length ? `<p><b>その他の検証課題：</b></p>` + listS2(b.more_checks.map(esc)) : '')
+    + `<p class="small"><b>確かさ：</b>事実の裏付け＝${esc(b.confidence.facts)}／構造推論＝${esc(b.confidence.structure)}／経営への影響＝${esc(b.confidence.impact)}</p>`;
+}
+
+function renderConstraintBrief(h, b, evIds, cases) {
+  const detail = renderBriefDetail(b, evIds);
+  return `<div class="panel constraint brief" data-constraint="${esc(h.id)}"><h3>${esc(h.id)}｜${esc(b.question)} ${badgeS2(h.claim_type)}</h3><div>`
+    + `<p class="small"><b>${esc(b.label)}</b>｜${esc(b.standing)}</p>`
+    + `<p><b>対象案件：</b>${h.case_ids.map(id => cases.get(id)).filter(Boolean).map(chipS2).join(' ')}</p>`
+    + `<p class="brief-why"><b>なぜこの問いか：</b>${esc(b.why || b.facts[0].text)}</p>`
+    + `<p class="brief-stage2"><b>第二層で確かめたいこと：</b>${esc(b.stage2)}</p>`
+    + `<details class="brief-more screenonly"><summary>詳細を開く（根拠・構造・対抗仮説・未確定の事項）</summary>${detail}</details>`
+    + `<div class="brief-more-print printonly">${detail}</div></div></div>`;
+}
+
+function renderSheet2V13(data, display = {}) {
+  const briefs = new Map((display.sheet2_briefs || []).map(b => [b.hypothesis_id, b]));
+  if (!data.constraints.some(h => briefs.has(h.id))) return renderSheet2(data);
+  const evIds = new Set(data.evidence.map(e => e.id)), cases = new Map(data.cases.map(c => [c.id, c])), d = data.display;
+  // 見出しは従来の第2票と同じもの（仮説なしで描いた先頭部分）を使う
+  const empty = renderSheet2({ ...data, constraints: [], display: { ...d, sheet2_note: '' } });
+  const head = empty.slice(0, empty.indexOf('<p class="muted">'));
+  // 要旨のない仮説は、従来の表示の1件分をそのまま使う
+  const legacyPanel = h => { const one = renderSheet2({ ...data, constraints: [h], display: { ...d, sheet2_note: '' } }); return one.slice(one.indexOf('<div class="panel constraint"'), one.lastIndexOf('</section>')); };
+  const parts = data.constraints.map(h => briefs.has(h.id) ? renderConstraintBrief(h, briefs.get(h.id), evIds, cases) : legacyPanel(h));
+  return head + parts.join('') + (d.sheet2_note ? `<p class="small">${esc(d.sheet2_note)}</p>` : '') + '</section>';
+}
+
 // V1.3：第1票（経営者向け）と、その補足（密集部の拡大一覧）・付録（分析メタデータ）のHTML。
 // 第2票・第3票はV1.2の描画（src/render.js）をそのまま使う。企業固有の文面は表示データ（data/v1_3/）から読む。
+
 
 
 
@@ -1087,6 +1135,7 @@ function checkDisplay(display, schema, data) {
   if (errors.length) return { ok: false, errors };
   const cases = new Set(data.cases.map(c => c.id)), cons = new Set(data.constraints.map(h => h.id)), evs = new Set(data.evidence.map(e => e.id));
   for (const id of Object.keys(display.short_walls)) if (!cases.has(id)) errors.push(`short_walls：データにない案件 ${id}`);
+  for (const b of display.sheet2_briefs || []) { if (!cons.has(b.hypothesis_id)) errors.push(`sheet2_briefs：データにない共通制約仮説 ${b.hypothesis_id}`); for (const f of b.facts) for (const e of f.evidence_ids) if (!evs.has(e)) errors.push(`sheet2_briefs[${b.hypothesis_id}]：データにない根拠 ${e}`); }
   for (const i of [...display.insights, display.takeaway]) {
     for (const h of i.constraint_ids) if (!cons.has(h)) errors.push(`${i.id ?? 'takeaway'}：データにない共通制約仮説 ${h}`);
     for (const e of i.evidence_ids || []) if (!evs.has(e)) errors.push(`${i.id}：データにない根拠 ${e}`);
@@ -1117,7 +1166,7 @@ function renderSheet1V13(data, display, state = {}, interactive = false) {
     + `<div class="v13-notes small">${notes.map(n => `<div>${n}</div>`).join('')}</div>${controls}</div>`
     + `<aside class="side"><h3>この1枚から見えること</h3>`
     + display.insights.map((ins, i) => `<div class="insight"><b>${'①②③'[i] || ''} ${esc(ins.title)} ${badgeV13(ins.claim_type)}</b>${esc(ins.text)}</div>`).join('')
-    + `<div class="takeaway">${esc(display.takeaway.label)}：<br>${esc(display.takeaway.text)}</div></aside></div></section>`;
+    + `<div class="takeaway">${esc(display.takeaway.label)}：<br>${esc(display.takeaway.text)}${display.takeaway.note ? `<div class="takeaway-note">${esc(display.takeaway.note)}</div>` : ''}</div></aside></div></section>`;
   return { html, map };
 }
 
@@ -1185,7 +1234,7 @@ function renderAppendix(data) {
 function renderDocumentV13(data, display, report, state = {}, interactive = false) {
   const s1 = renderSheet1V13(data, display, state, interactive);
   const selected = state.sheet3 && data.cases.some(c => c.id === state.sheet3) ? state.sheet3 : data.cases[0].id;
-  return { html: s1.html + renderSupplement(s1.map.layout, state) + renderSheet2(data) + renderSheet3(data, report, selected) + renderAppendix(data), map: s1.map };
+  return { html: s1.html + renderSupplement(s1.map.layout, state) + renderSheet2V13(data, display) + renderSheet3(data, report, selected) + renderAppendix(data), map: s1.map };
 }
 
 // V1.3 HTML版の操作：集約グループの展開、案件の時系列の強調表示、第3票への移動、書き出し・印刷。
