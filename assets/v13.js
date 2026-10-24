@@ -1127,6 +1127,11 @@ function renderSheet2V13(data, display = {}) {
 
 
 
+// 縦軸の平易な説明（正式名称は AXIS_Y.name のまま）と、成長の壁の記号（B3の分類 A・B・C、src/b3/apply.js の TYPE_LABEL）の凡例
+const AXIS_Y_PLAIN = '競合にとって参入が不合理になる度合い';
+const AXIS_Y_FOCUS = '競合の既存事業・収益構造・戦略との矛盾に着目し、単なる技術的参入障壁とは異なる';
+const WALL_LEGEND = { A: '顧客の切替必然性を高めるうえでの制約（横軸）', B: '競合の参入不協和性を高めるうえでの制約（縦軸）', C: '市場規模・採算・生産能力などの事業拡張上の制約' };
+
 const badgeV13 = t => `<span class="ct ct-${esc(t)}">${esc(CLAIM_TYPES[t] || t)}</span>`;
 
 // 表示データの検証（企業固有の文面が推論結果に紐づいているか）
@@ -1152,11 +1157,13 @@ function renderSheet1V13(data, display, state = {}, interactive = false) {
   const line = dash => `<svg width="26" height="8" aria-hidden="true"><line x1="1" y1="4" x2="25" y2="4" stroke="#6b7c8a" stroke-width="2.4"${dash ? ` stroke-dasharray="${dash}"` : ''}/></svg>`;
   const held = map.layout.model.cases.filter(c => c.held);
   const notes = [
-    `<b>軸</b>：横＝${esc(AXIS_X.name)}（顧客にとっての不可欠性）／縦＝${esc(AXIS_Y.name)}。L1〜L4で判定し、独走路はL4×L4のみ。`,
+    `<b>軸</b>：横＝${esc(AXIS_X.name)}（顧客にとっての不可欠性）／縦＝${esc(AXIS_Y.name)}（${esc(AXIS_Y_PLAIN)}。${esc(AXIS_Y_FOCUS)}）。L1〜L4で判定し、独走路はL4×L4のみ。`,
     `<b>円</b>：面積＝${year ? `${esc(year)}年度の` : ''}製品別売上（破線の輪郭は参考値）。◆＝売上非開示。`,
     `<b>線</b>：${Object.values(TRAJ_KINDS).map(k => `${line(k.dash)}${esc(k.label)}`).join('　')}。需要の増減だけの変化は矢印にしない。`,
     `<b>評価幅</b>：点線の枠。判定は未検証の推論を含む（根拠・対抗仮説は第3票）。${map.layout.groups.length ? '<b>G</b>＝密集部の集約。点は正式判定の位置で、色・番号は右の対応表と補足の拡大一覧に対応。規模はグループ内で最大の案件の売上（合計はしない）。' : ''}${held.length ? `判定保留：${held.map(c => esc(c.name)).join('・')}。` : ''}`
   ];
+  const wallTypes = [...new Set(Object.values(display.short_walls || {}).flatMap(w => (w.type || '').split('/')).filter(t => WALL_LEGEND[t]))].sort();
+  if (wallTypes.length) notes.push(`<b>成長の壁の記号</b>：${wallTypes.map(t => `${t}＝${esc(WALL_LEGEND[t])}`).join('／')}。「A/B」などは、該当する複数の制約が併存することを示す。`);
   const controls = interactive ? `<div class="controls noprint"><label>案件の時系列を表示：<select id="v13-select"><option value="">（選択なし）</option>${data.cases.map(c => `<option value="${esc(c.id)}"${state.selected === c.id ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>`
     + `<label><input id="v13-unc" type="checkbox"${state.uncertainty === false ? '' : ' checked'}> 評価幅</label><button data-v13="clear">選択を解除</button></div>`
     + `<div id="v13-detail" class="noprint v13-detail">${state.expanded ? renderGroupDetail(map.layout, state.expanded) : state.selected ? renderCaseTimeline(map.layout, state.selected) : '<p class="small">地図の集約マーカー（G）や案件をクリックすると、案件の一覧・正式判定・時系列を表示します。</p>'}</div>` : '';
