@@ -1127,7 +1127,7 @@ function renderSheet2V13(data, display = {}) {
 
 
 
-// 縦軸の平易な説明（正式名称は AXIS_Y.name のまま）と、成長の壁の記号（B3の分類 A・B・C、src/b3/apply.js の TYPE_LABEL）の凡例
+// 縦軸の平易な説明（正式名称は AXIS_Y.name のまま）と、成長の壁の記号（A・B・C）の凡例
 const AXIS_Y_PLAIN = '競合にとって参入が不合理になる度合い';
 const AXIS_Y_FOCUS = '競合の既存事業・収益構造・戦略との矛盾に着目し、単なる技術的参入障壁とは異なる';
 const WALL_LEGEND = { A: '顧客の切替必然性を高めるうえでの制約（横軸）', B: '競合の参入不協和性を高めるうえでの制約（縦軸）', C: '市場規模・採算・生産能力などの事業拡張上の制約' };
