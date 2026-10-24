@@ -1066,7 +1066,7 @@ function renderMapV13(data, display = {}, state = {}) {
   }
   const dim = sel ? ' opacity="0.28"' : '';
   const W = panelInfo ? WIDTH_WITH_PANEL : GM.W;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${GM.H}" role="img" aria-label="${esc(data.metadata.company)}｜成長必然性マップ" font-family="${esc(FONT_V13)}">`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${GM.H}" role="img" aria-label="${esc(data.metadata.company)}｜成長価値マップ" font-family="${esc(FONT_V13)}">`
     + el('rect', { x: 0, y: 0, width: W, height: GM.H, fill: '#ffffff' })
     + `<g class="v13-base"${dim}>${base.join('')}${top.join('')}${labels.join('')}</g>${zones.join('')}${panel.join('')}${focus.join('')}</svg>`;
   return { svg, layout, panel: panelInfo };
@@ -1167,7 +1167,7 @@ function renderSheet1V13(data, display, state = {}, interactive = false) {
   const controls = interactive ? `<div class="controls noprint"><label>案件の時系列を表示：<select id="v13-select"><option value="">（選択なし）</option>${data.cases.map(c => `<option value="${esc(c.id)}"${state.selected === c.id ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>`
     + `<label><input id="v13-unc" type="checkbox"${state.uncertainty === false ? '' : ' checked'}> 評価幅</label><button data-v13="clear">選択を解除</button></div>`
     + `<div id="v13-detail" class="noprint v13-detail">${state.expanded ? renderGroupDetail(map.layout, state.expanded) : state.selected ? renderCaseTimeline(map.layout, state.selected) : '<p class="small">地図の集約マーカー（G）や案件をクリックすると、案件の一覧・正式判定・時系列を表示します。</p>'}</div>` : '';
-  const html = `<section class="sheet" id="sheet1"><div class="heading"><div><h1>${esc(data.metadata.company)}｜成長必然性マップ</h1>`
+  const html = `<section class="sheet" id="sheet1"><div class="heading"><div><h1>${esc(data.metadata.company)}｜成長価値マップ</h1>`
     + `<div class="sub">${esc(display.header.analysis_label)}｜${esc(periodLabel(data))}</div></div></div>`
     + `<div class="bodygrid"><div><div class="graphbox" id="mapbox">${map.svg}</div>`
     + `<div class="v13-notes small">${notes.map(n => `<div>${n}</div>`).join('')}</div>${controls}</div>`
